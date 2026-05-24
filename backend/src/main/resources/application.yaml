@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: VitaflowAuthService
+
+  datasource:
+    url: jdbc:postgresql://204.168.211.21:5444/authdb
+    username: authuser
+    password: "%b*Eb-LFuXxV?2QXhA^Geyd9fG@3,2+7.U:4}Kib16Wi+~"
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: auth
+    open-in-view: false
+
+# 🔐 SECURITY
+security:
+  jwt:
+    secret: super_secret_jwt_key_that_is_long_enough_for_hs256_1234567890
+    access-ttl: 900   # 15 dk
+
+  refresh-token:
+    hash-secret: super_secret_refresh_token_key_1234567890
+    ttl: 604800       # 7 gün
+
+# 🚀 SWAGGER (springdoc)
+springdoc:
+  api-docs:
+    enabled: true
+
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui
+    url: /v3/api-docs
+    disable-swagger-default-url: true
+
+  cache:
+    disabled: true   # 🔥 cache sorunu çözülür
+
+# (opsiyonel ama iyi)
+server:
+  port: 8080

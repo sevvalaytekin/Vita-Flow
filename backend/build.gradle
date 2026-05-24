@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.6'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.vitaflow'
+version = '1.0.0'
+
+// Removed strict toolchain for java 21
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    // 🔥 Core
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // 🔥 Validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // 🔥 Data
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 🔥 JWT (en güvenli ve modern lib)
+    implementation 'com.nimbusds:nimbus-jose-jwt:9.37.3'
+
+    // 🔥 JSON
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+
+    // 🔥 Lombok (opsiyonel ama önerilir)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // 🔥 Logging
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
+    // 🔥 Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

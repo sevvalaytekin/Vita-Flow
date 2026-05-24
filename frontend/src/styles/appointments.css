@@ -1,0 +1,309 @@
+.cancelled-notice-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.cn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.cn-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1e40af;
+}
+
+.cn-title h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.cn-close {
+  background: transparent;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.cn-close:hover {
+  color: var(--text-main);
+}
+
+.cn-desc {
+  font-size: 0.85rem;
+  color: #1e3a8a;
+  margin-bottom: 1.5rem;
+}
+
+.cn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cn-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.cn-info h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.cn-info p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.priority-badge {
+  background: var(--background-color);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.cn-action {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.time-left {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tab-btn {
+  background: white;
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.tab-btn:hover {
+  background: var(--background-color);
+}
+
+.tab-btn.active {
+  background: white;
+  color: var(--text-main);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-content {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  min-height: 400px;
+}
+
+.new-appt-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.hospital-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hs-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.hs-card:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.hs-info h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.hs-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.hs-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hs-score {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* My Appointments List */
+.my-appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.my-appt-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+}
+
+.my-appt-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.my-appt-date-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--primary-color);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.my-appt-hospital {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: var(--text-main);
+}
+
+.my-appt-doctor {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.my-appt-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.status-onaylandı {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-beklemede {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.btn-cancel-appt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.btn-cancel-appt:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .cn-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .cn-action {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .my-appt-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .my-appt-right {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+  }
+}

@@ -1,0 +1,1022 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red255\green255\blue255;\red16\green60\blue192;
+\red117\green117\blue117;}
+{\*\expandedcolortbl;;\cssrgb\c13333\c13333\c13333;\cssrgb\c100000\c100000\c100000;\cssrgb\c6667\c33333\c80000;
+\cssrgb\c53333\c53333\c53333;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs20 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 -- =============================================================================\cb1 \
+\cb3 -- KURUMSAL LOGIN S?STEM? - AUTH ?EMASI (FULL MIGRATION)\cb1 \
+\cb3 -- Versiyon: 2.0.1 (PostgreSQL Syntax Fix)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\
+\cb3 -- Extension'lar\cb1 \
+\cb3 CREATE EXTENSION IF NOT EXISTS pgcrypto;\cb1 \
+\
+\cb3 -- Eski ?emay? temizle\cb1 \
+\cb3 DROP SCHEMA IF EXISTS auth CASCADE;\cb1 \
+\cb3 CREATE SCHEMA auth;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 1. TENANTS (MULTI-TENANCY CORE)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.tenants (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 code \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(80) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 name \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(150) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 active \'a0 \'a0 \'a0 \'a0 \'a0BOOLEAN NOT NULL DEFAULT TRUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 updated_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT uk_tenants_code UNIQUE (code)\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 -- Unique index with WHERE clause (PostgreSQL compatible)\cb1 \
+\cb3 CREATE UNIQUE INDEX uk_tenants_code_deleted ON auth.tenants(code) WHERE deleted = FALSE;\cb1 \
+\
+\cb3 CREATE INDEX idx_tenants_active ON auth.tenants(active);\cb1 \
+\cb3 CREATE INDEX idx_tenants_deleted ON auth.tenants(deleted);\cb1 \
+\
+\cb3 -- Varsay?lan tenant\cb1 \
+\cb3 INSERT INTO auth.tenants (code, name, active) VALUES\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ('SYSTEM', 'System Tenant', TRUE),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ('DEFAULT', 'Default Organization', TRUE)\cb1 \
+\cb3 ON CONFLICT (code) DO NOTHING;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 2. USERS (SOFT-DELETE + AUDIT + MULTI-TENANT)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.users (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 tenant_id \'a0 \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 username \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(80) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 email \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 VARCHAR(180) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 password_hash \'a0 \'a0 \'a0 VARCHAR(255) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 enabled \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT TRUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 locked \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 email_verified \'a0 \'a0 \'a0BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 failed_login_count \'a0INTEGER NOT NULL DEFAULT 0,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 last_login_at \'a0 \'a0 \'a0 TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 last_password_change TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 updated_at \'a0 \'a0 \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_by \'a0 \'a0 \'a0 \'a0 \'a0UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 updated_by \'a0 \'a0 \'a0 \'a0 \'a0UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted_at \'a0 \'a0 \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted_by \'a0 \'a0 \'a0 \'a0 \'a0UUID NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_users_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE RESTRICT,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_users_created_by\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_users_updated_by\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_users_deleted_by\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (deleted_by) REFERENCES auth.users(id) ON DELETE SET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT chk_users_email_format\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]\{2,\}$')\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 -- Multi-tenant unique indexes (PostgreSQL compatible)\cb1 \
+\cb3 CREATE UNIQUE INDEX uk_users_username_tenant ON auth.users(tenant_id, username) WHERE deleted = FALSE;\cb1 \
+\cb3 CREATE UNIQUE INDEX uk_users_email_tenant ON auth.users(tenant_id, email) WHERE deleted = FALSE;\cb1 \
+\
+\cb3 -- Performans indeksleri\cb1 \
+\cb3 CREATE INDEX idx_users_tenant ON auth.users(tenant_id);\cb1 \
+\cb3 CREATE INDEX idx_users_deleted ON auth.users(deleted);\cb1 \
+\cb3 CREATE INDEX idx_users_enabled ON auth.users(enabled);\cb1 \
+\cb3 CREATE INDEX idx_users_locked ON auth.users(locked);\cb1 \
+\cb3 CREATE INDEX idx_users_email ON auth.users(email);\cb1 \
+\cb3 CREATE INDEX idx_users_login_lookup ON auth.users(tenant_id, email, enabled, locked) WHERE deleted = FALSE;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 3. ROLES (MULTI-TENANT + SOFT-DELETE)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.roles (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 tenant_id \'a0 \'a0 \'a0 UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 code \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(80) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 name \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(120) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 description \'a0 \'a0 TEXT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 system_role \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 active \'a0 \'a0 \'a0 \'a0 \'a0BOOLEAN NOT NULL DEFAULT TRUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 updated_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_roles_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE RESTRICT\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE UNIQUE INDEX uk_roles_code_tenant ON auth.roles(tenant_id, code) WHERE deleted = FALSE;\cb1 \
+\cb3 CREATE INDEX idx_roles_active ON auth.roles(active);\cb1 \
+\cb3 CREATE INDEX idx_roles_tenant ON auth.roles(tenant_id);\cb1 \
+\cb3 CREATE INDEX idx_roles_deleted ON auth.roles(deleted);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 4. PERMISSIONS (SOFT-DELETE EKLEND?)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.permissions (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 code \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(120) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 name \'a0 \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(150) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 resource \'a0 \'a0 \'a0 \'a0VARCHAR(80) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 action \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(40) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 description \'a0 \'a0 TEXT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 active \'a0 \'a0 \'a0 \'a0 \'a0BOOLEAN NOT NULL DEFAULT TRUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 updated_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 deleted_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT uk_permissions_code UNIQUE (code),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT uk_permissions_resource_action UNIQUE (resource, action)\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_permissions_resource ON auth.permissions(resource);\cb1 \
+\cb3 CREATE INDEX idx_permissions_active ON auth.permissions(active);\cb1 \
+\cb3 CREATE INDEX idx_permissions_deleted ON auth.permissions(deleted);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 5. USER ROLES\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.user_roles (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0user_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0role_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0tenant_id \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0assigned_at \'a0 \'a0 TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0assigned_by \'a0 \'a0 UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0created_by \'a0 \'a0 \'a0UUID NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0PRIMARY KEY (user_id, role_id),\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_user_roles_user\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_user_roles_role\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (role_id) REFERENCES auth.roles(id) ON DELETE RESTRICT,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_user_roles_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE RESTRICT\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_user_roles_user_id ON auth.user_roles(user_id);\cb1 \
+\cb3 CREATE INDEX idx_user_roles_role_id ON auth.user_roles(role_id);\cb1 \
+\cb3 CREATE INDEX idx_user_roles_tenant ON auth.user_roles(tenant_id);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 6. ROLE PERMISSIONS\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.role_permissions (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0role_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0permission_id \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0tenant_id \'a0 \'a0 \'a0 UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0granted_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0granted_by \'a0 \'a0 \'a0UUID NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0PRIMARY KEY (role_id, permission_id),\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_role_permissions_role\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (role_id) REFERENCES auth.roles(id) ON DELETE CASCADE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_role_permissions_permission\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (permission_id) REFERENCES auth.permissions(id) ON DELETE RESTRICT,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_role_permissions_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE SET NULL\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_role_permissions_role_id ON auth.role_permissions(role_id);\cb1 \
+\cb3 CREATE INDEX idx_role_permissions_permission_id ON auth.role_permissions(permission_id);\cb1 \
+\cb3 CREATE INDEX idx_role_permissions_tenant ON auth.role_permissions(tenant_id);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 7. REFRESH TOKENS\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.refresh_tokens (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0user_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0tenant_id \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0token_hash \'a0 \'a0 \'a0VARCHAR(255) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0expires_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0revoked \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0revoked_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0replaced_by_id \'a0UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0created_ip \'a0 \'a0 \'a0INET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0user_agent \'a0 \'a0 \'a0TEXT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0deleted \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT FALSE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0deleted_at \'a0 \'a0 \'a0TIMESTAMPTZ NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT uk_refresh_tokens_token_hash UNIQUE (token_hash),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_refresh_tokens_user\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_refresh_tokens_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE RESTRICT,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0CONSTRAINT fk_refresh_tokens_replaced_by\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0FOREIGN KEY (replaced_by_id) REFERENCES auth.refresh_tokens(id) ON DELETE SET NULL\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_refresh_tokens_user_id ON auth.refresh_tokens(user_id);\cb1 \
+\cb3 CREATE INDEX idx_refresh_tokens_tenant ON auth.refresh_tokens(tenant_id);\cb1 \
+\cb3 CREATE INDEX idx_refresh_tokens_expires_at ON auth.refresh_tokens(expires_at);\cb1 \
+\cb3 CREATE INDEX idx_refresh_tokens_revoked ON auth.refresh_tokens(revoked);\cb1 \
+\cb3 CREATE INDEX idx_refresh_tokens_deleted ON auth.refresh_tokens(deleted);\cb1 \
+\cb3 CREATE INDEX idx_refresh_tokens_cleanup ON auth.refresh_tokens(tenant_id, expires_at) WHERE revoked = TRUE OR deleted = TRUE;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 8. PASSWORD HISTORY\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.user_password_history (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 user_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 password_hash \'a0 VARCHAR(255) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_password_history_user\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_password_history_user ON auth.user_password_history(user_id);\cb1 \
+\cb3 CREATE INDEX idx_password_history_created ON auth.user_password_history(created_at);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 9. LOGIN ATTEMPTS\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.login_attempts (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0email \'a0 \'a0 \'a0 \'a0 \'a0 VARCHAR(180) NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0ip_address \'a0 \'a0 \'a0INET NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0success \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0attempted_at \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now()\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_login_attempts_cleanup ON auth.login_attempts(attempted_at);\cb1 \
+\cb3 CREATE INDEX idx_login_attempts_email_ip ON auth.login_attempts(email, ip_address, attempted_at);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 10. LOGIN AUDIT\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.login_audit (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 user_id \'a0 \'a0 \'a0 \'a0 UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 tenant_id \'a0 \'a0 \'a0 UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 email \'a0 \'a0 \'a0 \'a0 \'a0 VARCHAR(180) NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 success \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 reason \'a0 \'a0 \'a0 \'a0 \'a0VARCHAR(120) NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ip_address \'a0 \'a0 \'a0INET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 user_agent \'a0 \'a0 \'a0TEXT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_login_audit_user\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_login_audit_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE SET NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT chk_login_audit_reason CHECK (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 reason IS NULL OR reason IN (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'SUCCESS', 'INVALID_PASSWORD', 'USER_NOT_FOUND', 'USER_LOCKED',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'USER_DISABLED', 'EMAIL_NOT_VERIFIED', 'TENANT_INACTIVE',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'TOO_MANY_ATTEMPTS', 'IP_BLOCKED', 'TOKEN_EXPIRED', 'TOKEN_REVOKED'\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 )\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 )\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_login_audit_user_id ON auth.login_audit(user_id);\cb1 \
+\cb3 CREATE INDEX idx_login_audit_tenant ON auth.login_audit(tenant_id);\cb1 \
+\cb3 CREATE INDEX idx_login_audit_created_at ON auth.login_audit(created_at);\cb1 \
+\cb3 CREATE INDEX idx_login_audit_success ON auth.login_audit(success);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- 11. USER SESSIONS\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 CREATE TABLE auth.user_sessions (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 id \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0UUID PRIMARY KEY DEFAULT gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 user_id \'a0 \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 tenant_id \'a0 \'a0 \'a0 \'a0 UUID NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 session_token \'a0 \'a0 VARCHAR(255) NOT NULL UNIQUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 refresh_token_id \'a0UUID NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ip_address \'a0 \'a0 \'a0 \'a0INET NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 user_agent \'a0 \'a0 \'a0 \'a0TEXT NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 device_id \'a0 \'a0 \'a0 \'a0 VARCHAR(255) NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 device_name \'a0 \'a0 \'a0 VARCHAR(255) NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 is_active \'a0 \'a0 \'a0 \'a0 BOOLEAN NOT NULL DEFAULT TRUE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 last_activity \'a0 \'a0 TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 expires_at \'a0 \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 created_at \'a0 \'a0 \'a0 \'a0TIMESTAMPTZ NOT NULL DEFAULT now(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 terminated_at \'a0 \'a0 TIMESTAMPTZ NULL,\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_user_sessions_user\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_user_sessions_tenant\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (tenant_id) REFERENCES auth.tenants(id) ON DELETE RESTRICT,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 CONSTRAINT fk_user_sessions_refresh_token\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FOREIGN KEY (refresh_token_id) REFERENCES auth.refresh_tokens(id) ON DELETE SET NULL\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 CREATE INDEX idx_user_sessions_user ON auth.user_sessions(user_id);\cb1 \
+\cb3 CREATE INDEX idx_user_sessions_tenant ON auth.user_sessions(tenant_id);\cb1 \
+\cb3 CREATE INDEX idx_user_sessions_active ON auth.user_sessions(is_active);\cb1 \
+\cb3 CREATE INDEX idx_user_sessions_expires ON auth.user_sessions(expires_at);\cb1 \
+\cb3 CREATE INDEX idx_user_sessions_token ON auth.user_sessions(session_token);\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- SEED DATA (Varsay?lan roller ve izinler)\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\
+\cb3 -- Roller (System Tenant i\uc0\u65533 in)\cb1 \
+\cb3 INSERT INTO auth.roles (id, tenant_id, code, name, description, system_role)\cb1 \
+\cb3 SELECT gen_random_uuid(), id, 'ROLE_SUPER_ADMIN', 'Super Admin', 'Full system administrator', TRUE\cb1 \
+\cb3 FROM auth.tenants WHERE code = 'SYSTEM'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 INSERT INTO auth.roles (id, tenant_id, code, name, description, system_role)\cb1 \
+\cb3 SELECT gen_random_uuid(), id, 'ROLE_ADMIN', 'Admin', 'Tenant administrator', FALSE\cb1 \
+\cb3 FROM auth.tenants WHERE code = 'SYSTEM'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 INSERT INTO auth.roles (id, tenant_id, code, name, description, system_role)\cb1 \
+\cb3 VALUES (gen_random_uuid(), NULL, 'ROLE_USER', 'User', 'Default application user', TRUE)\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 -- ?zinler\cb1 \
+\cb3 INSERT INTO auth.permissions (code, name, resource, action, description) VALUES\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('USER_READ', 'Read users', 'USER', 'READ', 'Kullan?c?lar? listeleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('USER_CREATE', 'Create users', 'USER', 'CREATE', 'Yeni kullan?c? olu?turma'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('USER_UPDATE', 'Update users', 'USER', 'UPDATE', 'Kullan?c? g\uc0\u65533 ncelleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('USER_DELETE', 'Delete users', 'USER', 'DELETE', 'Kullan?c? silme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('USER_LOCK', 'Lock users', 'USER', 'LOCK', 'Kullan?c? kilitleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('ROLE_READ', 'Read roles', 'ROLE', 'READ', 'Rolleri listeleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('ROLE_CREATE', 'Create roles', 'ROLE', 'CREATE', 'Yeni rol olu?turma'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('ROLE_UPDATE', 'Update roles', 'ROLE', 'UPDATE', 'Rol g\uc0\u65533 ncelleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('ROLE_DELETE', 'Delete roles', 'ROLE', 'DELETE', 'Rol silme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('ROLE_ASSIGN', 'Assign roles', 'ROLE', 'ASSIGN', 'Rol atama'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('PERMISSION_READ', 'Read permissions', 'PERMISSION', 'READ', '?zinleri listeleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('PERMISSION_ASSIGN', 'Assign permissions', 'PERMISSION', 'ASSIGN', '?zin atama'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('TENANT_READ', 'Read tenants', 'TENANT', 'READ', 'Tenant listeleme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('TENANT_MANAGE', 'Manage tenants', 'TENANT', 'MANAGE', 'Tenant y\uc0\u65533 netimi'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('AUTH_LOGIN', 'Login', 'AUTH', 'LOGIN', 'Giri? yapma'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('AUTH_REFRESH', 'Refresh token', 'AUTH', 'REFRESH', 'Token yenileme'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('AUTH_LOGOUT', 'Logout', 'AUTH', 'LOGOUT', '\uc0\u65533 ?k?? yapma'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0('AUTH_MFA', 'Multi-factor auth', 'AUTH', 'MFA', '?ki fakt\uc0\u65533 rl\u65533  do?rulama')\cb1 \
+\cb3 ON CONFLICT (code) DO NOTHING;\cb1 \
+\
+\cb3 -- SUPER_ADMIN t\uc0\u65533 m izinlere sahip\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id, tenant_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}, r.tenant_id\cb1 \
+\cb3 FROM auth.roles r CROSS JOIN auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_SUPER_ADMIN'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 -- ADMIN t\uc0\u65533 m izinlere sahip\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id, tenant_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}, r.tenant_id\cb1 \
+\cb3 FROM auth.roles r CROSS JOIN auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_ADMIN'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 -- USER temel izinlere sahip\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id, tenant_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}, r.tenant_id\cb1 \
+\cb3 FROM auth.roles r\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.permissions p ON p.code IN ('USER_READ', 'AUTH_LOGIN', 'AUTH_REFRESH', 'AUTH_LOGOUT')\cb1 \
+\cb3 WHERE r.code = 'ROLE_USER'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- SUPER ADMIN KULLANICI\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 DO $$\cb1 \
+\cb3 \'a0 \'a0 DECLARE\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 system_tenant_id UUID;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 super_admin_role_id UUID;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 admin_user_id UUID;\cb1 \
+\cb3 \'a0 \'a0 BEGIN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 SELECT id INTO system_tenant_id FROM auth.tenants WHERE code = 'SYSTEM';\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 SELECT id INTO super_admin_role_id FROM auth.roles WHERE code = 'ROLE_SUPER_ADMIN' AND tenant_id = system_tenant_id;\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.users (id, tenant_id, username, email, password_hash, enabled, locked, email_verified, created_at)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), system_tenant_id, 'superadmin', 'superadmin@system.local',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.VTtYWOgBiFpN3q',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 TRUE, FALSE, TRUE, now())\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 ON CONFLICT DO NOTHING;\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 -- Role atamas?\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.user_roles (user_id, role_id, tenant_id)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://u.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 u.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}, u.tenant_id\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 FROM auth.users u, auth.roles r\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 WHERE u.email = 'superadmin@system.local' AND r.code = 'ROLE_SUPER_ADMIN'\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 ON CONFLICT DO NOTHING;\cb1 \
+\cb3 \'a0 \'a0 END $$;\cb1 \
+\
+\cb3 -- =============================================================================\cb1 \
+\cb3 -- ANALYZE\cb1 \
+\cb3 -- =============================================================================\cb1 \
+\cb3 ANALYZE auth.tenants;\cb1 \
+\cb3 ANALYZE auth.users;\cb1 \
+\cb3 ANALYZE auth.roles;\cb1 \
+\cb3 ANALYZE auth.permissions;\cb1 \
+\cb3 ANALYZE auth.user_roles;\cb1 \
+\cb3 ANALYZE auth.role_permissions;\cb1 \
+\cb3 ANALYZE auth.refresh_tokens;\cb1 \
+\cb3 ANALYZE auth.user_password_history;\cb1 \
+\cb3 ANALYZE auth.login_attempts;\cb1 \
+\cb3 ANALYZE auth.login_audit;\cb1 \
+\cb3 ANALYZE auth.user_sessions;\cb1 \
+\
+\
+\
+\cb3 -- Tenant'lar? kontrol et\cb1 \
+\cb3 SELECT * FROM auth.tenants;\cb1 \
+\
+\cb3 -- DEFAULT tenant yoksa ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now())\cb1 \
+\cb3 ON CONFLICT (code) DO NOTHING;\cb1 \
+\
+\cb3 -- SYSTEM tenant da ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now())\cb1 \
+\cb3 ON CONFLICT (code) DO NOTHING;\cb1 \
+\
+\cb3 -- Kontrol et\cb1 \
+\cb3 SELECT id, code, name, active FROM auth.tenants;\cb1 \
+\
+\cb3 -- \uc0\u65533 ?k\cb1 \
+\cb3 \\q\cb1 \
+\
+\
+\cb3 INSERT INTO auth.roles (id, code, name, system_role) VALUES (gen_random_uuid(), 'ROLE_USER', 'User', true) ON CONFLICT (code, tenant_id) WHERE tenant_id IS NULL DO NOTHING;"\cb1 \
+\
+\
+\cb3 -- Tenant ekle (ON CONFLICT yok, \uc0\u65533 nce kontrol et)\cb1 \
+\cb3 DO $$\cb1 \
+\cb3 BEGIN\cb1 \
+\cb3 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'DEFAULT') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now());\cb1 \
+\cb3 \'a0 \'a0 END IF;\cb1 \
+\
+\cb3 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'SYSTEM') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now());\cb1 \
+\cb3 \'a0 \'a0 END IF;\cb1 \
+\cb3 END $$;\cb1 \
+\
+\cb3 -- Tenant'lar? kontrol et\cb1 \
+\cb3 SELECT * FROM auth.tenants;\cb1 \
+\
+\cb3 PGPASSWORD='%b*Eb-LFuXxV?2QXhA^Geyd9fG@3,2+7.U:4\}Kib16Wi+~' psql -h 204.168.211.21 -p 5444 -U authuser -d authdb << 'EOF'\cb1 \
+\cb3 DO $$\cb1 \
+\cb3 BEGIN\cb1 \
+\cb3 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'DEFAULT') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now());\cb1 \
+\cb3 \'a0 \'a0 END IF;\cb1 \
+\
+\cb3 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'SYSTEM') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now());\cb1 \
+\cb3 \'a0 \'a0 END IF;\cb1 \
+\cb3 END $$;\cb1 \
+\cb3 SELECT id, code, name, active FROM auth.tenants;\cb1 \
+\cb3 EOF\cb1 \
+\
+\
+\cb3 DO $$\cb1 \
+\cb3 BEGIN\cb1 \
+\cb3 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM auth.roles WHERE code = 'ROLE_USER' AND tenant_id IS NULL) THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 VALUES (gen_random_uuid(), 'ROLE_USER', 'User', true);\cb1 \
+\cb3 \'a0 \'a0 END IF;\cb1 \
+\cb3 END $$;\cb1 \
+\cb3 SELECT id, code, name FROM auth.roles;\cb1 \
+\cb3 EOF\cb1 \
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now()),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now());\cb1 \
+\
+\cb3 -- Kontrol et\cb1 \
+\cb3 SELECT id, code, name FROM auth.tenants;\cb1 \
+\
+\cb3 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_USER', 'Default User Role', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_ADMIN', 'Administrator', false),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_SUPER_ADMIN', 'Super Administrator', false);\cb1 \
+\
+\cb3 -- Kontrol et\cb1 \
+\cb3 SELECT id, code, name FROM auth.roles;\cb1 \
+\
+\cb3 -- Tenant'lar? ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now()),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now());\cb1 \
+\
+\cb3 -- Rolleri ekle (created_at yok)\cb1 \
+\cb3 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_USER', 'Default User Role', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_ADMIN', 'Administrator', false),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'ROLE_SUPER_ADMIN', 'Super Administrator', false);\cb1 \
+\
+\cb3 -- Permission'lar? ekle (created_at yok)\cb1 \
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_LOGIN', 'Login Permission', 'AUTH', 'LOGIN', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_REFRESH', 'Refresh Permission', 'AUTH', 'REFRESH', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_LOGOUT', 'Logout Permission', 'AUTH', 'LOGOUT', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'USER_READ', 'Read Users', 'USER', 'READ', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'USER_CREATE', 'Create Users', 'USER', 'CREATE', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'USER_UPDATE', 'Update Users', 'USER', 'UPDATE', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'USER_DELETE', 'Delete Users', 'USER', 'DELETE', true);\cb1 \
+\
+\cb3 -- ROLE_USER'a permission ata\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_USER'\cb1 \
+\cb3 \'a0 AND p.code IN ('AUTH_LOGIN', 'AUTH_REFRESH', 'AUTH_LOGOUT');\cb1 \
+\
+\cb3 -- ROLE_ADMIN'e t\uc0\u65533 m permission'lar? ata\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_ADMIN';\cb1 \
+\
+\cb3 -- ROLE_SUPER_ADMIN'e t\uc0\u65533 m permission'lar? ata\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_SUPER_ADMIN';\cb1 \
+\
+\cb3 -- Kontroller\cb1 \
+\cb3 SELECT 'Tenants:' as info, code, name FROM auth.tenants\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Roles:', code, name FROM auth.roles\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Permissions:', code, name FROM auth.permissions;\cb1 \
+\
+\cb3 -- Kontrol et\cb1 \
+\cb3 SELECT id, code, name FROM auth.permissions;\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 -- Tenant'lar? ekle (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now()\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'DEFAULT');\cb1 \
+\
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now()\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.tenants WHERE code = 'SYSTEM');\cb1 \
+\
+\cb3 -- Rolleri ekle (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'ROLE_USER', 'Default User Role', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.roles WHERE code = 'ROLE_USER' AND tenant_id IS NULL);\cb1 \
+\
+\cb3 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'ROLE_ADMIN', 'Administrator', false\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.roles WHERE code = 'ROLE_ADMIN' AND tenant_id IS NULL);\cb1 \
+\
+\cb3 INSERT INTO auth.roles (id, code, name, system_role)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'ROLE_SUPER_ADMIN', 'Super Administrator', false\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.roles WHERE code = 'ROLE_SUPER_ADMIN' AND tenant_id IS NULL);\cb1 \
+\
+\cb3 -- Permission'lar? ekle (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'AUTH_LOGIN', 'Login Permission', 'AUTH', 'LOGIN', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'AUTH_LOGIN');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'AUTH_REFRESH', 'Refresh Permission', 'AUTH', 'REFRESH', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'AUTH_REFRESH');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'AUTH_LOGOUT', 'Logout Permission', 'AUTH', 'LOGOUT', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'AUTH_LOGOUT');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'USER_READ', 'Read Users', 'USER', 'READ', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'USER_READ');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'USER_CREATE', 'Create Users', 'USER', 'CREATE', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'USER_CREATE');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'USER_UPDATE', 'Update Users', 'USER', 'UPDATE', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'USER_UPDATE');\cb1 \
+\
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 SELECT gen_random_uuid(), 'USER_DELETE', 'Delete Users', 'USER', 'DELETE', true\cb1 \
+\cb3 WHERE NOT EXISTS (SELECT 1 FROM auth.permissions WHERE code = 'USER_DELETE');\cb1 \
+\
+\cb3 -- ROLE_USER'a permission ata (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_USER'\cb1 \
+\cb3 \'a0 AND p.code IN ('AUTH_LOGIN', 'AUTH_REFRESH', 'AUTH_LOGOUT')\cb1 \
+\cb3 \'a0 AND NOT EXISTS (\cb1 \
+\cb3 \'a0 \'a0 SELECT 1 FROM auth.role_permissions rp\cb1 \
+\cb3 \'a0 \'a0 WHERE rp.role_id =\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0AND rp.permission_id =\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 -- ROLE_ADMIN'e t\uc0\u65533 m permission'lar? ata (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_ADMIN'\cb1 \
+\cb3 \'a0 AND NOT EXISTS (\cb1 \
+\cb3 \'a0 \'a0 SELECT 1 FROM auth.role_permissions rp\cb1 \
+\cb3 \'a0 \'a0 WHERE rp.role_id =\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0AND rp.permission_id =\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 -- ROLE_SUPER_ADMIN'e t\uc0\u65533 m permission'lar? ata (IF NOT EXISTS)\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_SUPER_ADMIN'\cb1 \
+\cb3 \'a0 AND NOT EXISTS (\cb1 \
+\cb3 \'a0 \'a0 SELECT 1 FROM auth.role_permissions rp\cb1 \
+\cb3 \'a0 \'a0 WHERE rp.role_id =\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0AND rp.permission_id =\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 );\cb1 \
+\
+\cb3 -- Kontroller\cb1 \
+\cb3 SELECT 'Tenants:' as info, code, name FROM auth.tenants\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Roles:', code, name FROM auth.roles\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Permissions:', code, name FROM auth.permissions;\cb1 \
+\
+\
+\
+\cb3 SELECT * \'a0FROM auth.tenants;\cb1 \
+\
+\
+\cb3 -- tenant sorgusu\cb1 \
+\cb3 SELECT * FROM auth.tenants WHERE code = 'DEFAULT' AND active = true AND deleted = false;\cb1 \
+\cb3 UPDATE auth.tenants SET deleted = false WHERE deleted IS NULL;\cb1 \
+\
+\
+\cb3 -- \uc0\u65533 nce tablodaki NULL'lar? kontrol et\cb1 \
+\cb3 SELECT id, code, deleted FROM auth.tenants;\cb1 \
+\
+\cb3 -- NULL olanlar? false yap (e?er NULL varsa)\cb1 \
+\cb3 UPDATE auth.tenants SET deleted = false WHERE deleted IS NULL;\cb1 \
+\
+\
+\
+\cb3 -- DEFAULT tenant'lar? kontrol et\cb1 \
+\cb3 SELECT id, code, name, active, deleted FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- Fazla olanlar? sil (en eskisini veya birini tut)\cb1 \
+\cb3 DELETE FROM auth.tenants WHERE code = 'DEFAULT' AND id != '0ca989cd-ff33-4f72-8cb1-d3bcb6d37e58';\cb1 \
+\
+\cb3 -- Tekrar kontrol et\cb1 \
+\cb3 SELECT id, code, name FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\
+\cb3 -- E?er unique constraint yoksa ekle\cb1 \
+\cb3 ALTER TABLE auth.tenants ADD CONSTRAINT uk_tenants_code UNIQUE (code);\cb1 \
+\
+\
+\
+\cb3 -- \uc0\u65533 nce t\u65533 m DEFAULT tenant'lar? g\u65533 ster\cb1 \
+\cb3 SELECT * FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- T\uc0\u65533 m DEFAULT tenant'lar? sil\cb1 \
+\cb3 DELETE FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- Tekrar tek DEFAULT ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now());\cb1 \
+\
+\cb3 -- Kontrol et (sadece 1 kay?t olmal?)\cb1 \
+\cb3 SELECT id, code, name FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\
+\
+\
+\cb3 -- Unique constraint ekle\cb1 \
+\cb3 ALTER TABLE auth.tenants ADD CONSTRAINT uk_tenants_code UNIQUE (code);\cb1 \
+\
+\
+\
+\cb3 -- DEFAULT tenant'lardan sadece birini tut\cb1 \
+\cb3 DELETE FROM auth.tenants\cb1 \
+\cb3 WHERE code = 'DEFAULT'\cb1 \
+\cb3 \'a0 AND id NOT IN (SELECT MIN(id) FROM auth.tenants WHERE code = 'DEFAULT');\cb1 \
+\
+\cb3 DO $$\cb1 \
+\cb3 \'a0 \'a0 DECLARE\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 tbl record;\cb1 \
+\cb3 \'a0 \'a0 BEGIN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 FOR tbl IN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 SELECT table_name\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 FROM information_schema.tables\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 WHERE table_schema = 'auth'\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 AND table_name IN ('tenants', 'users', 'roles', 'refresh_tokens')\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 LOOP\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 EXECUTE format('ALTER TABLE auth.%I ALTER COLUMN deleted SET DEFAULT false', tbl.table_name);\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 EXECUTE format('UPDATE auth.%I SET deleted = false WHERE deleted IS NULL', tbl.table_name);\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 EXECUTE format('ALTER TABLE auth.%I ALTER COLUMN deleted SET NOT NULL', tbl.table_name);\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 END LOOP;\cb1 \
+\cb3 \'a0 \'a0 END $$;\cb1 \
+\
+\
+\
+\cb3 -- T\uc0\u65533 m DEFAULT tenant'lar? sil\cb1 \
+\cb3 DELETE FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- Yeni bir DEFAULT tenant ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at, deleted)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now(), false);\cb1 \
+\
+\
+\
+\cb3 -- \uc0\u65533 nce deleted s\u65533 tunlar?n? g\u65533 ncelle\cb1 \
+\cb3 ALTER TABLE auth.tenants ALTER COLUMN deleted SET DEFAULT false;\cb1 \
+\cb3 ALTER TABLE auth.users ALTER COLUMN deleted SET DEFAULT false;\cb1 \
+\cb3 ALTER TABLE auth.roles ALTER COLUMN deleted SET DEFAULT false;\cb1 \
+\cb3 ALTER TABLE auth.refresh_tokens ALTER COLUMN deleted SET DEFAULT false;\cb1 \
+\
+\cb3 -- NULL olanlar? false yap\cb1 \
+\cb3 UPDATE auth.tenants SET deleted = false WHERE deleted IS NULL;\cb1 \
+\cb3 UPDATE auth.users SET deleted = false WHERE deleted IS NULL;\cb1 \
+\cb3 UPDATE auth.roles SET deleted = false WHERE deleted IS NULL;\cb1 \
+\cb3 UPDATE auth.refresh_tokens SET deleted = false WHERE deleted IS NULL;\cb1 \
+\
+\cb3 -- NOT NULL yap\cb1 \
+\cb3 ALTER TABLE auth.tenants ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\cb3 ALTER TABLE auth.users ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\cb3 ALTER TABLE auth.roles ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\cb3 ALTER TABLE auth.refresh_tokens ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\
+\
+\cb3 -- Roles tablosuna deleted s\uc0\u65533 tunu ekle\cb1 \
+\cb3 ALTER TABLE auth.roles ADD COLUMN deleted BOOLEAN DEFAULT false;\cb1 \
+\cb3 ALTER TABLE auth.roles ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\
+\cb3 -- Permissions tablosuna deleted s\uc0\u65533 tunu ekle\cb1 \
+\cb3 ALTER TABLE auth.permissions ADD COLUMN deleted BOOLEAN DEFAULT false;\cb1 \
+\cb3 ALTER TABLE auth.permissions ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\
+\cb3 -- User_roles tablosunda deleted yoksa (zaten olmayabilir)\cb1 \
+\cb3 -- Tenant zaten var\cb1 \
+\cb3 -- S\uc0\u65533 tunlar? ekle (yoksa)\cb1 \
+\cb3 DO $$\cb1 \
+\cb3 \'a0 \'a0 BEGIN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 -- Roles\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM information_schema.columns\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0WHERE table_schema = 'auth' AND table_name = 'roles' AND column_name = 'deleted') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ALTER TABLE auth.roles ADD COLUMN deleted BOOLEAN DEFAULT false;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ALTER TABLE auth.roles ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 END IF;\cb1 \
+\
+\cb3 \'a0 \'a0 \'a0 \'a0 -- Permissions\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 IF NOT EXISTS (SELECT 1 FROM information_schema.columns\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0WHERE table_schema = 'auth' AND table_name = 'permissions' AND column_name = 'deleted') THEN\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ALTER TABLE auth.permissions ADD COLUMN deleted BOOLEAN DEFAULT false;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0 ALTER TABLE auth.permissions ALTER COLUMN deleted SET NOT NULL;\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 END IF;\cb1 \
+\cb3 \'a0 \'a0 END $$;\cb1 \
+\
+\
+\cb3 -- DEFAULT tenant'lar? sil ve yeniden ekle\cb1 \
+\cb3 DELETE FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at, deleted)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now(), false);\cb1 \
+\
+\cb3 -- SYSTEM tenant\cb1 \
+\cb3 DELETE FROM auth.tenants WHERE code = 'SYSTEM';\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at, deleted)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now(), false);\cb1 \
+\cb3 -- Tenant'lar? kontrol et\cb1 \
+\cb3 SELECT id, code, name, active, deleted FROM auth.tenants;\cb1 \
+\cb3 SELECT id, code FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\cb3 -- Tenant yoksa ekle (ON CONFLICT yok)\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at, deleted)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now(), false),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'SYSTEM', 'System Tenant', true, now(), false);\cb1 \
+\cb3 -- T\uc0\u65533 m tenant'lar? g\u65533 r\cb1 \
+\cb3 SELECT id, code, name FROM auth.tenants;\cb1 \
+\
+\
+\cb3 -- Tenant ekle\cb1 \
+\cb3 INSERT INTO auth.tenants (id, code, name, active, created_at, deleted)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'DEFAULT', 'Default Organization', true, now(), false);\cb1 \
+\
+\cb3 -- Yeni tenant ID'sini al\cb1 \
+\cb3 SELECT id, code FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- Role ekle\cb1 \
+\cb3 INSERT INTO auth.roles (id, code, name, system_role, active)\cb1 \
+\cb3 VALUES (gen_random_uuid(), 'ROLE_USER', 'Default User', true, true);\cb1 \
+\
+\cb3 -- Permission ekle\cb1 \
+\cb3 INSERT INTO auth.permissions (id, code, name, resource, action, active)\cb1 \
+\cb3 VALUES\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_LOGIN', 'Login', 'AUTH', 'LOGIN', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_REFRESH', 'Refresh', 'AUTH', 'REFRESH', true),\cb1 \
+\cb3 \'a0 \'a0 (gen_random_uuid(), 'AUTH_LOGOUT', 'Logout', 'AUTH', 'LOGOUT', true);\cb1 \
+\
+\cb3 -- Role-Permission ata\cb1 \
+\cb3 INSERT INTO auth.role_permissions (role_id, permission_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 FROM auth.roles r, auth.permissions p\cb1 \
+\cb3 WHERE r.code = 'ROLE_USER' AND p.code IN ('AUTH_LOGIN', 'AUTH_REFRESH', 'AUTH_LOGOUT');\cb1 \
+\
+\cb3 -- Son kontrol\cb1 \
+\cb3 SELECT 'Tenantlar:' as type, code, name FROM auth.tenants\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Roller:', code, name FROM auth.roles\cb1 \
+\cb3 UNION ALL\cb1 \
+\cb3 SELECT 'Permissionlar:', code, name FROM auth.permissions;\cb1 \
+\
+\cb3 select * from login_audit\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 -- \uc0\u65533 nce tenant ID'yi al\cb1 \
+\cb3 SELECT id FROM auth.tenants WHERE code = 'DEFAULT';\cb1 \
+\
+\cb3 -- User ekle (\uc0\u65533 ?kan ID'yi kullan)\cb1 \
+\cb3 INSERT INTO auth.users (id, tenant_id, username, email, password_hash, enabled, email_verified, created_at)\cb1 \
+\cb3 VALUES (\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0gen_random_uuid(),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0(SELECT id FROM auth.tenants WHERE code = 'DEFAULT'),\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'admin',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'{\field{\*\fldinst{HYPERLINK "mailto:admin@example.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@example.com}}',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0'$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.VTtYWOgBiFpN3q',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0true,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0true,\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0 \'a0now()\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0);\cb1 \
+\
+\cb3 SELECT email, password_hash, enabled FROM auth.users WHERE email = '{\field{\*\fldinst{HYPERLINK "mailto:admin@example.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@example.com}}';\cb1 \
+\
+\cb3 -- Yeni bir hash ile ?ifreyi g\uc0\u65533 ncelle (?ifre: Test123!)\cb1 \
+\cb3 UPDATE auth.users\cb1 \
+\cb3 SET password_hash = '$2a$10$NkMwpKxVJ/5T8ZQ/HtXqIuBg2kLvWY8LqHqWqHqWqHqWqHqWqHqWq'\cb1 \
+\cb3 WHERE email = '{\field{\*\fldinst{HYPERLINK "mailto:admin@example.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@example.com}}';\cb1 \
+\
+\
+\cb3 DROP INDEX IF EXISTS auth.ux_roles_code_tenant_active;\cb1 \
+\
+\cb3 CREATE UNIQUE INDEX ux_roles_code_tenant_active\cb1 \
+\cb3 \'a0 \'a0 ON auth.roles (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), code)\cb1 \
+\cb3 \'a0 \'a0 WHERE deleted = FALSE;\cb1 \
+\
+\
+\cb3 ALTER TABLE auth.refresh_tokens\cb1 \
+\cb3 \'a0 \'a0 ALTER COLUMN created_ip TYPE VARCHAR(45)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 USING created_ip::text;\cb1 \
+\
+\cb3 ALTER TABLE auth.login_audit\cb1 \
+\cb3 \'a0 \'a0 ALTER COLUMN ip_address TYPE VARCHAR(45)\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 USING ip_address::text;\cb1 \
+\
+\cb3 ALTER TABLE auth.refresh_tokens\cb1 \
+\cb3 \'a0 \'a0 ALTER COLUMN created_ip TYPE inet\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 USING created_ip::inet;\cb1 \
+\
+\
+\cb3 INSERT INTO auth.users (\cb1 \
+\cb3 \'a0 \'a0 tenant_id,\cb1 \
+\cb3 \'a0 \'a0 username,\cb1 \
+\cb3 \'a0 \'a0 email,\cb1 \
+\cb3 \'a0 \'a0 password_hash,\cb1 \
+\cb3 \'a0 \'a0 enabled\cb1 \
+\cb3 )\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://t.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 t.id}},\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0'admin',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0'{\field{\*\fldinst{HYPERLINK "mailto:admin@vitaflow.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@vitaflow.com}}',\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0'$2a$12$u1Vv8kQpT5cXx8Yw6k6Z4u0WlH8lZ7sT9YFZ0ePpQ6j3r5V9zF9eW', -- password: 12345678\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0true\cb1 \
+\cb3 FROM auth.tenants t\cb1 \
+\cb3 WHERE t.code = 'DEFAULT';\cb1 \
+\
+\
+\
+\
+\cb3 UPDATE auth.users\cb1 \
+\cb3 SET password_hash = '$2a$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36C4z0X6n7h5Y5a5nZ6xO7a'\cb1 \
+\cb3 WHERE email = '{\field{\*\fldinst{HYPERLINK "mailto:admin@vitaflow.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@vitaflow.com}}';\cb1 \
+\
+\
+\
+\cb3 SELECT *\cb1 \
+\cb3 FROM auth.users\cb1 \
+\cb3 WHERE email = '{\field{\*\fldinst{HYPERLINK "mailto:admin@vitaflow.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@vitaflow.com}}';\cb1 \
+\
+\
+\
+\cb3 SELECT t.code, u.email\cb1 \
+\cb3 FROM auth.users u\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.tenants t ON u.tenant_id =\'a0{\field{\*\fldinst{HYPERLINK "http://t.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 t.id}};\cb1 \
+\
+\
+\cb3 -- admin user'a ROLE_ADMIN ver\cb1 \
+\cb3 INSERT INTO auth.user_roles (user_id, role_id, tenant_id)\cb1 \
+\cb3 SELECT\'a0{\field{\*\fldinst{HYPERLINK "http://u.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 u.id}},\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}, u.tenant_id\cb1 \
+\cb3 FROM auth.users u\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON r.code = 'ROLE_ADMIN'\cb1 \
+\cb3 WHERE u.email = '{\field{\*\fldinst{HYPERLINK "mailto:admin@vitaflow.com"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 admin@vitaflow.com}}'\cb1 \
+\cb3 ON CONFLICT DO NOTHING;\cb1 \
+\
+\
+\
+\
+\cb3 -- admin role'a t\uc0\u65533 m permissionlar zaten verilmi?\cb1 \
+\cb3 -- ama kontrol i\uc0\u65533 in:\cb1 \
+\
+\cb3 SELECT p.code\cb1 \
+\cb3 FROM auth.role_permissions rp\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.permissions p ON rp.permission_id =\'a0{\field{\*\fldinst{HYPERLINK "http://p.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 p.id}}\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON rp.role_id =\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\cb1 \
+\cb3 WHERE r.code = 'ROLE_ADMIN';\cb1 \
+\
+\
+\
+\cb3 ALTER TABLE auth.login_audit\cb1 \
+\cb3 \'a0 \'a0 ALTER COLUMN ip_address TYPE inet\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 USING ip_address::inet;\cb1 \
+\
+\
+\
+\cb3 SELECT\cb1 \
+\cb3 \'a0 \'a0 id,\cb1 \
+\cb3 \'a0 \'a0 email,\cb1 \
+\cb3 \'a0 \'a0 success,\cb1 \
+\cb3 \'a0 \'a0 reason,\cb1 \
+\cb3 \'a0 \'a0 ip_address,\cb1 \
+\cb3 \'a0 \'a0 user_agent,\cb1 \
+\cb3 \'a0 \'a0 created_at\cb1 \
+\cb3 FROM auth.login_audit\cb1 \
+\cb3 ORDER BY created_at DESC;\cb1 \
+\
+\cb3 ALTER TABLE auth.user_roles DROP COLUMN tenant_id;\cb1 \
+\
+\
+\
+\
+\cb3 SELECT u.email, r.code\cb1 \
+\cb3 FROM auth.users u\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.user_roles ur ON ur.user_id =\'a0{\field{\*\fldinst{HYPERLINK "http://u.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 u.id}}\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0= ur.role_id\cb1 \
+\cb3 WHERE r.code = 'ROLE_ADMIN';\cb1 \
+\
+\
+\cb3 SELECT r.code\cb1 \
+\cb3 FROM auth.user_roles ur\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0= ur.role_id\cb1 \
+\cb3 WHERE ur.user_id = 'e94d49f1-67f5-4d84-849e-d570d384f55e';\cb1 \
+\
+\
+\cb3 SELECT r.code\cb1 \
+\cb3 FROM auth.user_roles ur\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0= ur.role_id\cb1 \
+\cb3 WHERE ur.user_id = 'e94d49f1-67f5-4d84-849e-d570d384f55e';\cb1 \
+\
+\cb3 SELECT * FROM auth.users;\cb1 \
+\
+\
+\
+\cb3 SELECT u.email, r.code\cb1 \
+\cb3 FROM auth.users u\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.user_roles ur ON ur.user_id =\'a0{\field{\*\fldinst{HYPERLINK "http://u.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 u.id}}\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0= ur.role_id;\cb1 \
+\
+\
+\
+\cb3 SELECT u.email, r.code\cb1 \
+\cb3 FROM auth.users u\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.user_roles ur ON ur.user_id =\'a0{\field{\*\fldinst{HYPERLINK "http://u.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 u.id}}\cb1 \
+\cb3 \'a0 \'a0 \'a0 \'a0 \'a0JOIN auth.roles r ON\'a0{\field{\*\fldinst{HYPERLINK "http://r.id/"}}{\fldrslt \cf4 \ul \ulc4 \strokec4 r.id}}\'a0= ur.role_id;\cb1 \
+\
+\
+\cb3 select * from login_audit\
+\pard\pardeftab720\partightenfactor0
+\cf5 \strokec5 --\cb1 \
+\cb3 YKRN\cb1 \
+}
