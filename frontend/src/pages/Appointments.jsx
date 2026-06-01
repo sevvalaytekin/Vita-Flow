@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import NewAppointment from './NewAppointment';
 import { BellRing, X, Calendar as CalendarIcon, MapPin, Search, Clock, User, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { setAppointments, setCancelledAppointments, takeAppointment } from '../features/appointmentSlice';
@@ -41,84 +43,14 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const Appointments = () => {
   const dispatch = useDispatch();
-  const { appointments, cancelledAppointments } = useSelector((state) => state.appointment);
-  const [activeTab, setActiveTab] = useState('new');
+  const { appointments, cancelledAppointments, hasClaimedPriority } = useSelector((state) => state.appointment);
+  const { user } = useSelector((state) => state.auth);
+  const [activeTab, setActiveTab] = useState('mine');
   const [showCancelledNotice, setShowCancelledNotice] = useState(true);
-  const [hospitals, setHospitals] = useState([]);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState(null);
+  const navigate = useNavigate();
 
-  const fetchNearbyHospitals = (lat, lon) => {
-    setLocationLoading(true);
-    setLocationError(null);
-
-    const query = `
-      [out:json][timeout:60];
-      (
-        node["amenity"="hospital"](around:40000,${lat},${lon});
-        way["amenity"="hospital"](around:40000,${lat},${lon});
-        relation["amenity"="hospital"](around:40000,${lat},${lon});
-      );
-      out center body 50;
-    `;
-
-    fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`API hatası: ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const results = (data.elements || [])
-          .filter((el) => {
-            if (!el.tags?.name) return false;
-            const elLat = el.lat ?? el.center?.lat;
-            const elLon = el.lon ?? el.center?.lon;
-            return elLat != null && elLon != null;
-          })
-          .map((el) => {
-            const elLat = el.lat ?? el.center?.lat;
-            const elLon = el.lon ?? el.center?.lon;
-            const dist = getDistance(lat, lon, elLat, elLon);
-            const timeMin = Math.max(1, Math.round(dist * 3.5));
-            const score = Math.max(10, Math.round(100 - dist * 5));
-            return {
-              id: el.id,
-              name: el.tags.name,
-              distance: `${dist.toFixed(1)} km`,
-              time: `${timeMin} dk`,
-              score,
-              address: el.tags['addr:street'] || el.tags['addr:full'] || '',
-            };
-          })
-          .sort((a, b) => b.score - a.score);
-
-        setHospitals(results);
-      })
-      .catch((err) => {
-        console.error('Overpass API hatası:', err);
-        setLocationError('Hastane verisi alınamadı.');
-      })
-      .finally(() => setLocationLoading(false));
-  };
-
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Tarayıcınız konum desteklemiyor.');
-      return;
-    }
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => fetchNearbyHospitals(pos.coords.latitude, pos.coords.longitude),
-      () => {
-        setLocationLoading(false);
-        setLocationError('Konum izni reddedildi.');
-      }
-    );
-  };
+  // Check if user has priority (not standard user)
+  const hasPriority = user?.role && user.role !== 'Standart Kullanıcı' && user.role !== 'Kullanıcı';
 
   // Seed cancelled appointments into Redux on first load (if empty)
   useEffect(() => {
@@ -165,7 +97,7 @@ const Appointments = () => {
         </div>
       </div>
 
-      {showCancelledNotice && cancelledAppointments.length > 0 && (
+      {hasPriority && showCancelledNotice && cancelledAppointments.length > 0 && (
         <div className="cancelled-notice-box glass-panel">
           <div className="cn-header">
             <div className="cn-title">
@@ -187,12 +119,16 @@ const Appointments = () => {
                 <div className="cn-info">
                   <h5>{appt.hospital}</h5>
                   <p>{appt.doctor} • {appt.date}</p>
-                  <span className="priority-badge">Öncelik: {appt.priorityLevel}</span>
+                  <span className="priority-badge">{user?.role || 'Öncelikli Randevu'}</span>
                 </div>
                 <div className="cn-action">
                   <span className="time-left">Kalan süre: {appt.timeLeft}</span>
-                  <button className="btn-primary" onClick={() => handleTakeAppointment(appt.id)}>
-                    Randevuyu Al
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => handleTakeAppointment(appt.id)}
+                    disabled={hasClaimedPriority}
+                  >
+                    {hasClaimedPriority ? 'Bir randevunuz var' : 'Randevuyu Al'}
                   </button>
                 </div>
               </div>
@@ -214,69 +150,12 @@ const Appointments = () => {
         >
           Randevularım ({appointments.length})
         </button>
-        <button
-          className={`tab-btn ${activeTab === 'open' ? 'active' : ''}`}
-          onClick={() => setActiveTab('open')}
-        >
-          Açık Randevular
-        </button>
       </div>
 
       <div className="tab-content glass-panel">
         {activeTab === 'new' && (
-          <div className="new-appt-content fade-in">
-            <h3>1. Hastane Seçin</h3>
-
-            {hospitals.length === 0 && !locationLoading && (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <button className="btn-primary" onClick={handleGetLocation}>
-                  <MapPin size={16} style={{ marginRight: 6 }} />
-                  Konumumu Kullan
-                </button>
-                {locationError && (
-                  <p style={{ color: 'red', marginTop: '1rem' }}>{locationError}</p>
-                )}
-              </div>
-            )}
-
-            {locationLoading && (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                <Clock size={24} style={{ marginBottom: 8 }} />
-                <p>Yakındaki hastaneler aranıyor...</p>
-              </div>
-            )}
-
-            {hospitals.length > 0 && (
-              <>
-                <div className="optimization-notice" style={{ marginBottom: '1rem' }}>
-                  <Search size={16} />
-                  <span>
-                    Konumunuza göre {hospitals.length} hastane bulundu — mesafe ve skora göre sıralandı
-                  </span>
-                  <button
-                    onClick={handleGetLocation}
-                    style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    Yenile
-                  </button>
-                </div>
-                <div className="hospital-selection-list">
-                  {hospitals.map((h) => (
-                    <div key={h.id} className="hs-card">
-                      <div className="hs-info">
-                        <h4>{h.name}</h4>
-                        <div className="hs-meta">
-                          <span><MapPin size={14} /> {h.distance}</span>
-                          <span><CalendarIcon size={14} /> {h.time}</span>
-                          {h.address && <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{h.address}</span>}
-                        </div>
-                      </div>
-                      <div className="hs-score">~ {h.score}/100</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+          <div className="new-appt-content fade-in" style={{ padding: '0.5rem' }}>
+            <NewAppointment isEmbedded={true} onAppointmentCreated={() => setActiveTab('mine')} />
           </div>
         )}
 
@@ -328,17 +207,6 @@ const Appointments = () => {
           </div>
         )}
 
-        {activeTab === 'open' && (
-          <div className="open-appt-content fade-in">
-            <p className="cn-desc">
-              24 saatten fazla bekleyen iptal edilmiş randevular burada görünür.
-              İlk gelen alır mantığıyla çalışır.
-            </p>
-            <div className="empty-state">
-              Şu anda açık randevu bulunmamaktadır.
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

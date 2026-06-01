@@ -85,7 +85,7 @@ const EmergencyServices = () => {
               id: el.id,
               name: el.tags.name,
               address: [el.tags['addr:street'], el.tags['addr:district'], el.tags['addr:city']]
-                .filter(Boolean).join(', ') || el.tags['addr:full'] || '',
+                .filter(Boolean).join(', ') || el.tags['addr:full'] || 'Adres bilgisi harita sisteminde kayıtlı değil',
               distance: `${dist.toFixed(1)} km`,
               traffic: `${timeMin} dk`,
               capacity: `${usedCap}/${totalCap}`,
@@ -134,8 +134,10 @@ const EmergencyServices = () => {
       },
       (err) => {
         setLoading(false);
-        setLocationError('Konum izni reddedildi. Lütfen tarayıcı ayarlarınızdan izin verin.');
-        toast.error('Konum erişimi reddedildi.');
+        setLocationError('Gerçek konum alınamadı. Örnek (İstanbul) konumu üzerinden test verileri gösteriliyor.');
+        toast.warn('Konum izni alınamadı, örnek konum kullanılıyor.');
+        // İstanbul fallback
+        fetchNearbyHospitals(41.0082, 28.9784);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -214,6 +216,39 @@ const EmergencyServices = () => {
 
     toast.info(`${hospitalName} sıranız iptal edildi. Başka bir hastaneye kayıt olabilirsiniz.`, { autoClose: 4000 });
   };
+
+  // Simüle edilmiş kuyruk ilerlemesi
+  useEffect(() => {
+    let interval;
+    if (registeredHospitalId && userQueueNumber > 0) {
+      interval = setInterval(() => {
+        if (userQueueNumber <= 1) {
+          setRegisteredHospitalId(null);
+          setUserQueueNumber(null);
+          toast.success('Sıranız geldi! Lütfen doktor odasına geçiniz.', { autoClose: 8000, icon: '👨‍⚕️' });
+        } else {
+          const nextQueue = userQueueNumber - 1;
+          setUserQueueNumber(nextQueue);
+          toast.info(`Sıranız ilerledi. Güncel sıra numaranız: #${nextQueue}`);
+          
+          setHospitals(prevList => prevList.map(h => {
+            if (h.id === registeredHospitalId) {
+              const currentQueue = Math.max(0, (parseInt(h.queue) || 0) - 1);
+              return {
+                ...h,
+                queue: `${currentQueue} kişi`,
+              };
+            }
+            return h;
+          }));
+        }
+      }, 120000); // 2 dakikada bir (120,000 ms) ilerlesin
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [registeredHospitalId, userQueueNumber]);
 
   // Toplam istatistikler
   const totalCapacity = hospitals.reduce((sum, h) => {
@@ -392,10 +427,14 @@ const EmergencyServices = () => {
                   <button className="btn-secondary" style={{ flex: 1 }} onClick={() => handleDirections(hospital)}>
                     <Map size={16}/> Yol Tarifi Al
                   </button>
-                  {hospital.phone && (
+                  {hospital.phone ? (
                     <a href={`tel:${hospital.phone}`} className="btn-outline" style={{ textDecoration: 'none' }}>
                       <Phone size={16}/> {hospital.phone}
                     </a>
+                  ) : (
+                    <button className="btn-outline" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                      <Phone size={16}/> Numara Yok
+                    </button>
                   )}
                   {(() => {
                     const [used, total] = hospital.capacity.split('/').map(Number);

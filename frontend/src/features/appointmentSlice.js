@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   appointments: [],
   cancelledAppointments: [],
+  hasClaimedPriority: false,
   isLoading: false,
   error: null,
 };
@@ -14,6 +15,9 @@ const appointmentSlice = createSlice({
     setAppointments: (state, action) => {
       state.appointments = action.payload;
     },
+    addAppointment: (state, action) => {
+      state.appointments.push(action.payload);
+    },
     setCancelledAppointments: (state, action) => {
       state.cancelledAppointments = action.payload;
     },
@@ -23,6 +27,7 @@ const appointmentSlice = createSlice({
       if (appt) {
         state.appointments.push(appt);
         state.cancelledAppointments = state.cancelledAppointments.filter(a => a.id !== id);
+        state.hasClaimedPriority = true;
       }
     },
     setLoading: (state, action) => {
@@ -31,8 +36,12 @@ const appointmentSlice = createSlice({
     setError: (state, action) => {
       state.error = action.payload;
     }
+  },
+  extraReducers: (builder) => {
+    // Kullanıcı çıkış yaptığında randevu verilerini sıfırla
+    builder.addCase('auth/logout', () => initialState);
   }
 });
 
-export const { setAppointments, setCancelledAppointments, takeAppointment, setLoading, setError } = appointmentSlice.actions;
+export const { setAppointments, addAppointment, setCancelledAppointments, takeAppointment, setLoading, setError } = appointmentSlice.actions;
 export default appointmentSlice.reducer;

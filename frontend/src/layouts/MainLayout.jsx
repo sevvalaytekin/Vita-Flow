@@ -71,7 +71,7 @@ const MainLayout = () => {
             <div className="user-badge glass-panel">
               <User size={16} color="#0ea5e9" />
               <div>
-                <strong>{user?.name?.split(' ')[0] || 'Kullanıcı'}</strong>
+                <strong>{user?.name || 'Kullanıcı'}</strong>
                 <span>{user?.role || 'Öncelik Seviye: 2'}</span>
               </div>
             </div>
