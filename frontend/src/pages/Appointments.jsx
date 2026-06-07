@@ -48,6 +48,9 @@ const Appointments = () => {
   const [activeTab, setActiveTab] = useState('mine');
   const [showCancelledNotice, setShowCancelledNotice] = useState(true);
   const navigate = useNavigate();
+  
+  const currentUserId = user?.id || user?.email;
+  const userAppointments = appointments.filter(a => a.userId === currentUserId);
 
   // Check if user has priority (not standard user)
   const hasPriority = user?.role && user.role !== 'Standart Kullanıcı' && user.role !== 'Kullanıcı';
@@ -60,7 +63,7 @@ const Appointments = () => {
   }, []);
 
   const handleTakeAppointment = (id) => {
-    dispatch(takeAppointment(id));
+    dispatch(takeAppointment({ id, userId: currentUserId }));
     toast.success('Randevu başarıyla alındı!');
   };
 
@@ -148,7 +151,7 @@ const Appointments = () => {
           className={`tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
           onClick={() => setActiveTab('mine')}
         >
-          Randevularım ({appointments.length})
+          Randevularım ({userAppointments.length})
         </button>
       </div>
 
@@ -161,7 +164,7 @@ const Appointments = () => {
 
         {activeTab === 'mine' && (
           <div className="mine-appt-content fade-in">
-            {appointments.length === 0 ? (
+            {userAppointments.length === 0 ? (
               <div className="empty-state">
                 <CalendarIcon size={48} strokeWidth={1} style={{ opacity: 0.3, marginBottom: '1rem' }} />
                 <p style={{ color: 'var(--text-muted)' }}>Henüz randevunuz bulunmamaktadır.</p>
@@ -171,7 +174,7 @@ const Appointments = () => {
               </div>
             ) : (
               <div className="my-appointments-list">
-                {appointments.map(appt => (
+                {userAppointments.map(appt => (
                   <div key={appt.id} className="my-appt-card">
                     <div className="my-appt-left">
                       <div className="my-appt-date-badge">

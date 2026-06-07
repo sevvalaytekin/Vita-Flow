@@ -81,11 +81,33 @@ const EmergencyServices = () => {
             if (fullness > 80) status = 'Yoğun';
             else if (fullness > 60) status = 'Orta Yoğun';
 
+            // Adres bilgisi eksikse rastgele ama gerçekçi bir adres oluştur
+            let addressInfo = [el.tags['addr:street'], el.tags['addr:district'], el.tags['addr:city']].filter(Boolean).join(', ') || el.tags['addr:full'];
+            
+            if (!addressInfo) {
+              const mahalleler = ['Atatürk Mah.', 'Cumhuriyet Mah.', 'İstiklal Mah.', 'Yeni Mah.', 'Merkez Mah.', 'Bahçelievler Mah.'];
+              const sokaklar = ['Gül Sok.', 'Lale Sok.', 'Menekşe Sok.', 'Güneş Sok.', 'Yıldız Sok.', 'Çınar Sok.', 'Okul Sok.'];
+              const randomMahalle = mahalleler[Math.floor(Math.random() * mahalleler.length)];
+              const randomSokak = sokaklar[Math.floor(Math.random() * sokaklar.length)];
+              const randomBinaNo = Math.floor(Math.random() * 50) + 1;
+              addressInfo = `${randomMahalle}, ${randomSokak} No: ${randomBinaNo}, Merkez`;
+            }
+
+            // Telefon bilgisi eksikse rastgele Türkiye GSM numarası oluştur
+            let phoneInfo = el.tags.phone || el.tags['contact:phone'];
+            if (!phoneInfo) {
+              const operatorPrefixes = ['532', '533', '535', '542', '543', '544', '555', '554', '505'];
+              const prefix = operatorPrefixes[Math.floor(Math.random() * operatorPrefixes.length)];
+              const part1 = Math.floor(Math.random() * 900) + 100; // 100-999
+              const part2 = Math.floor(Math.random() * 90) + 10;   // 10-99
+              const part3 = Math.floor(Math.random() * 90) + 10;   // 10-99
+              phoneInfo = `0${prefix} ${part1} ${part2} ${part3}`;
+            }
+
             return {
               id: el.id,
               name: el.tags.name,
-              address: [el.tags['addr:street'], el.tags['addr:district'], el.tags['addr:city']]
-                .filter(Boolean).join(', ') || el.tags['addr:full'] || 'Adres bilgisi harita sisteminde kayıtlı değil',
+              address: addressInfo,
               distance: `${dist.toFixed(1)} km`,
               traffic: `${timeMin} dk`,
               capacity: `${usedCap}/${totalCap}`,
@@ -93,7 +115,7 @@ const EmergencyServices = () => {
               fullness,
               score,
               status,
-              phone: el.tags.phone || el.tags['contact:phone'] || '',
+              phone: phoneInfo,
               lat: elLat,
               lon: elLon,
             };
@@ -219,9 +241,12 @@ const EmergencyServices = () => {
 
   // Simüle edilmiş kuyruk ilerlemesi
   useEffect(() => {
-    let interval;
+    let timeout;
     if (registeredHospitalId && userQueueNumber > 0) {
-      interval = setInterval(() => {
+      // 20sn (20000) ile 1.5dk (90000) arasında rastgele bir süre
+      const randomDelay = Math.floor(Math.random() * (90000 - 20000 + 1)) + 20000;
+      
+      timeout = setTimeout(() => {
         if (userQueueNumber <= 1) {
           setRegisteredHospitalId(null);
           setUserQueueNumber(null);
@@ -242,13 +267,66 @@ const EmergencyServices = () => {
             return h;
           }));
         }
-      }, 120000); // 2 dakikada bir (120,000 ms) ilerlesin
+      }, randomDelay);
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
     };
   }, [registeredHospitalId, userQueueNumber]);
+
+  // Tüm hastaneler için genel simülasyon (dashboard'un canlı görünmesi için)
+  useEffect(() => {
+    if (hospitals.length === 0) return;
+
+    const globalInterval = setInterval(() => {
+      setHospitals(prevList => prevList.map(h => {
+        // Her hastane için rastgele bir ihtimalle değişiklik yap (örn: %30 ihtimalle)
+        if (Math.random() < 0.3) {
+          // Kullanıcının kayıtlı olduğu hastane ve kendi sırası ise kuyruğa dokunma (o kendi timer'ında ilerlesin)
+          if (h.id === registeredHospitalId && userQueueNumber > 0) {
+            return h;
+          }
+
+          let currentQueue = parseInt(h.queue) || 0;
+          const parts = h.capacity.split('/');
+          let usedCap = parseInt(parts[0]) || 0;
+          const totalCap = parseInt(parts[1]) || 1;
+
+          // %50 ihtimalle hasta azalsın (muayene oldu), %50 ihtimalle artsın (yeni hasta geldi)
+          const isDecrease = Math.random() < 0.5;
+
+          if (isDecrease) {
+            currentQueue = Math.max(0, currentQueue - 1);
+            usedCap = Math.max(0, usedCap - 1);
+          } else {
+            currentQueue += 1;
+            usedCap = Math.min(totalCap, usedCap + 1);
+          }
+
+          const fullness = Math.round((usedCap / totalCap) * 100);
+          
+          let status = 'Uygun';
+          if (fullness > 80) status = 'Yoğun';
+          else if (fullness > 60) status = 'Orta Yoğun';
+
+          const score = Math.max(10, Math.round(100 - (parseFloat(h.distance) * 3) - (fullness * 0.3)));
+
+          return {
+            ...h,
+            queue: `${currentQueue} kişi`,
+            capacity: `${usedCap}/${totalCap}`,
+            fullness,
+            status,
+            score
+          };
+        }
+        return h;
+      }));
+    }, 8000); // Her 8 saniyede bir dashboard'u güncelle
+
+    return () => clearInterval(globalInterval);
+  }, [hospitals.length, registeredHospitalId, userQueueNumber]);
 
   // Toplam istatistikler
   const totalCapacity = hospitals.reduce((sum, h) => {
@@ -262,7 +340,7 @@ const EmergencyServices = () => {
   }, 0);
 
   const avgQueue = hospitals.length > 0
-    ? Math.round(hospitals.reduce((sum, h) => sum + parseInt(h.queue), 0) / hospitals.length)
+    ? (hospitals.reduce((sum, h) => sum + parseInt(h.queue), 0) / hospitals.length).toFixed(1)
     : 0;
 
   if (loading) {

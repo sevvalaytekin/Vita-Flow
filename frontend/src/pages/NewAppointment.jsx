@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { addAppointment } from '../features/appointmentSlice';
 // City center coordinates for Overpass API queries
@@ -91,6 +91,7 @@ const clinicLabels = {
 const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
   const [step, setStep] = useState(1);
   const [searchMode, setSearchMode] = useState('general');
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(null);
@@ -100,6 +101,7 @@ const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
     district: '',
     clinic: '',
     hospital: '',
+    hospitalName: '',
     doctor: '',
     date: ''
   });
@@ -253,11 +255,14 @@ const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'city') {
-      setFormData({ ...formData, city: value, district: '', hospital: '', doctor: '' });
+      setFormData({ ...formData, city: value, district: '', hospital: '', hospitalName: '', doctor: '' });
     } else if (name === 'district') {
-      setFormData({ ...formData, district: value, hospital: '' });
+      setFormData({ ...formData, district: value, hospital: '', hospitalName: '' });
     } else if (name === 'clinic') {
       setFormData({ ...formData, clinic: value, doctor: '' });
+    } else if (name === 'hospital') {
+      const selectedText = e.target.options ? e.target.options[e.target.selectedIndex].text : '';
+      setFormData({ ...formData, hospital: value, hospitalName: value ? selectedText : '' });
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -269,6 +274,7 @@ const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
       district: '',
       clinic: '',
       hospital: '',
+      hospitalName: '',
       doctor: '',
       date: ''
     });
@@ -287,7 +293,7 @@ const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
   // Generate options for step 2
   const appointmentOptions = (formData.date ? [0, 1, 2] : [0, 1, 2, 3]).map((index) => {
     const displayHospital = formData.hospital 
-      ? (hospitals.find(h => h.id === formData.hospital)?.name || 'Seçilen Hastane') 
+      ? (formData.hospitalName || 'Seçilen Hastane') 
       : (hospitals.length > index ? hospitals[index % hospitals.length].name : 'Bölge Devlet Hastanesi');
     
     const displayClinic = formData.clinic ? clinicLabels[formData.clinic] : 'Klinik';
@@ -330,6 +336,7 @@ const NewAppointment = ({ isEmbedded, onAppointmentCreated }) => {
     
     const newAppointment = {
       id: Date.now(),
+      userId: user?.id || user?.email,
       hospital: selectedOption.hospital,
       doctor: `${selectedOption.clinic} - ${selectedOption.doctor}`,
       date: selectedOption.fullDateStr,

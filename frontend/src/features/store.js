@@ -10,3 +10,7 @@ export const store = configureStore({
     profile: profileReducer,
   },
 });
+
+store.subscribe(() => {
+  localStorage.setItem('vitaflow_appointments', JSON.stringify(store.getState().appointment));
+});

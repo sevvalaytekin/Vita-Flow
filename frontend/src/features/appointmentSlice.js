@@ -1,6 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const initialState = {
+const savedState = JSON.parse(localStorage.getItem('vitaflow_appointments') || 'null');
+
+const initialState = savedState || {
   appointments: [],
   cancelledAppointments: [],
   hasClaimedPriority: false,
@@ -22,10 +24,10 @@ const appointmentSlice = createSlice({
       state.cancelledAppointments = action.payload;
     },
     takeAppointment: (state, action) => {
-      const id = action.payload;
+      const { id, userId } = action.payload;
       const appt = state.cancelledAppointments.find(a => a.id === id);
       if (appt) {
-        state.appointments.push(appt);
+        state.appointments.push({ ...appt, userId });
         state.cancelledAppointments = state.cancelledAppointments.filter(a => a.id !== id);
         state.hasClaimedPriority = true;
       }
@@ -37,10 +39,6 @@ const appointmentSlice = createSlice({
       state.error = action.payload;
     }
   },
-  extraReducers: (builder) => {
-    // Kullanıcı çıkış yaptığında randevu verilerini sıfırla
-    builder.addCase('auth/logout', () => initialState);
-  }
 });
 
 export const { setAppointments, addAppointment, setCancelledAppointments, takeAppointment, setLoading, setError } = appointmentSlice.actions;
